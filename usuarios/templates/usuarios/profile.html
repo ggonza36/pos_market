@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block title %}Perfil de Usuario{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow-lg">
+        <div class="card-header bg-primary text-white text-center">
+            <h3 class="mb-0">Perfil de Usuario</h3>
+        </div>
+        <div class="card-body">
+            <p><strong>Nombre de usuario:</strong> {{ user.username }}</p>
+            <p><strong>Email:</strong> {{ user.email }}</p>
+            <p><strong>Rol:</strong> {% if user.rol %}{{ user.rol.nombre }}{% else %}No asignado{% endif %}</p>
+            <p><strong>Activo:</strong> {% if user.is_active %}Sí{% else %}No{% endif %}</p>
+            <p><strong>Staff:</strong> {% if user.is_staff %}Sí{% else %}No{% endif %}</p>
+            <p><strong>Superusuario:</strong> {% if user.is_superuser %}Sí{% else %}No{% endif %}</p>
+            
+            <a href="{% url 'usuario_update' user.pk %}" class="btn btn-secondary mt-3">Editar Perfil (como admin)</a>
+            {# Si quieres que el usuario edite su propio perfil sin ser admin, necesitarías una vista separada para eso #}
+        </div>
+    </div>
+</div>
+{% endblock %}

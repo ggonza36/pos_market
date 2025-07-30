@@ -1,0 +1,21 @@
+<!-- filepath: tasas/templates/tasas/tasa_form.html -->
+
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% block title %}Nueva Tasa BCV | POS Tienda{% endblock %}
+
+{% block content %}
+<div class="card mx-auto" style="max-width: 500px;">
+    <div class="card-body">
+        <h2 class="card-title mb-4">{% if object %}Editar{% else %}Nueva{% endif %} Tasa BCV</h2>
+        <form method="post">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <div class="d-flex justify-content-between mt-3">
+                <button type="submit" class="btn btn-success">Guardar</button>
+                <a href="{% url 'tasa_list' %}" class="btn btn-secondary">Volver</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

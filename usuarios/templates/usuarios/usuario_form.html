@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Nuevo Usuario | POS Tienda{% endblock %}
+
+{% block content %}
+<div class="card mx-auto" style="max-width: 600px;">
+    <div class="card-body">
+        <h2 class="card-title mb-4">{% if object %}Editar{% else %}Nuevo{% endif %} Usuario</h2>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <div class="d-flex justify-content-between">
+                <button type="submit" class="btn btn-success">Guardar</button>
+                <a href="{% url 'usuario_list' %}" class="btn btn-secondary">Volver</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

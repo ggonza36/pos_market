@@ -1,0 +1,65 @@
+<!-- filepath: c:\Users\User\Documents\pos_tienda\inventario\templates\inventario\importar_productos.html -->
+{% extends 'base.html' %}
+{% block title %}Importar Productos{% endblock %}
+{% block content %}
+<div class="container mt-5">
+    <h2>Importar productos desde Excel</h2>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Importar</button>
+        <a href="{% url 'producto_list' %}" class="btn btn-secondary">Volver</a>
+    </form>
+    {% if form.errors %}
+        <div class="alert alert-danger mt-3">
+            <strong>Error:</strong> Por favor, corrige los errores en el formulario.
+            <ul>
+                {% for field in form %}
+                    {% for error in field.errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+    {% if messages %}
+
+    <div class="mt-3">
+        <strong>Instrucciones:</strong>
+        <p>Para importar productos, por favor sube un archivo Excel (.xlsx) con la siguiente estructura:</p>
+        <ul>
+            <li>La primera fila debe contener los nombres de las columnas.</li>
+            <li>Las columnas deben estar en el orden especificado a continuación.</li>
+            <li>Asegúrate de que los datos sean correctos y estén completos.</li>
+        </ul>
+    </div>
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} mt-3">
+            {{ message }}
+        </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="mt-3">
+        <a href="{% url 'descargar_plantilla_productos' %}" class="btn btn-success">
+            Descargar plantilla de Importacion
+            <i class="fas fa-file-download"></i>
+        </a>
+    </div>
+    
+    <div class="mt-3">
+        <strong>Formato esperado:</strong>
+        <ul>
+            <li>Nombre</li>
+            <li>Categoría</li>
+            <li>Precio Dólar</li>
+            <li>Precio Bs</li>
+            <li>Stock</li>
+            <li>Descripción</li>
+            <li>Porcentaje Ganancia</li>
+            <li>Precio Individual Dólar</li>
+            <li>Precio Individual Bs</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

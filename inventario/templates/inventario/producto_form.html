@@ -1,0 +1,155 @@
+<!-- filepath: c:\Users\User\Documents\pos_tienda\inventario\templates\inventario\producto_form.html -->
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% block title %}Nuevo Producto | POS Tienda{% endblock %}
+
+{% block content %}
+{% if no_tasa %}
+  <div class="alert alert-danger d-flex align-items-center justify-content-between">
+    <div>
+      <strong>¡Atención!</strong> No hay una tasa BCV activa. Debes crear una antes de agregar productos.
+    </div>
+    <a href="{% url 'tasa_create' %}" class="btn btn-danger btn-sm ms-3">Crear Tasa BCV</a>
+  </div>
+{% endif %}
+<div class="card mx-auto" style="max-width: 600px;">
+    <div class="card-body">
+        <h2 class="card-title mb-4">{% if object %}Editar{% else %}Nuevo{% endif %} Producto</h2>
+        <form method="post">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <input type="hidden" name="precio_individual_dolar" id="hidden_precio_individual_dolar">
+            <input type="hidden" name="precio_individual_bs" id="hidden_precio_individual_bs">
+            <div class="row mt-3">
+                <div class="mb-3">
+                    <label for="iva" class="form-label">¿Lleva IVA?</label>
+                        <select id="iva" class="form-select">
+                            <option value="no" selected>No</option>
+                            <option value="si">Sí</option>
+                        </select>
+                </div>
+                <div class="col">
+                    <label for="precio_individual_dolar" class="form-label">Precio individual ($)</label>
+                    <input type="text" id="precio_individual_dolar" class="form-control" readonly>
+                </div>
+                <div class="col">
+                    <label for="precio_individual_bs" class="form-label">Precio individual (Bs)</label>
+                    <input type="text" id="precio_individual_bs" class="form-control" readonly>
+                </div>
+            </div>
+            <div class="d-flex justify-content-between mt-3">
+                <button type="submit" class="btn btn-success" {% if no_tasa %}disabled{% endif %}>Guardar</button>
+                <a href="{% url 'producto_list' %}" class="btn btn-secondary">Volver</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tasaBCV = parseFloat('{{ tasa_bcv|default:"0"|floatformat:"2" }}'.replace(',', '.')) || 0;
+    const inputDolar = document.getElementById('id_precio_dolar');
+    const inputBs = document.getElementById('id_precio_bs');
+    const inputPorcentaje = document.getElementById('id_porcentaje_ganancia');
+    const inputStock = document.getElementById('id_stock');
+    const inputIndividualDolar = document.getElementById('precio_individual_dolar');
+    const inputIndividualBs = document.getElementById('precio_individual_bs');
+    const hiddenIndividualDolar = document.getElementById('hidden_precio_individual_dolar');
+    const hiddenIndividualBs = document.getElementById('hidden_precio_individual_bs');
+    const selectIVA = document.getElementById('iva');
+
+    function getIvaFactor() {
+        return selectIVA && selectIVA.value === 'si' ? 1.16 : 1;
+    }
+
+    function calcularDesdeDolar() {
+        let dolar = parseFloat(inputDolar.value.replace(',', '.'));
+        let iva = getIvaFactor();
+        if (!isNaN(dolar) && dolar > 0 && tasaBCV > 0) {
+            let nuevo_bs = (dolar * tasaBCV * iva).toFixed(2);
+            inputBs.value = nuevo_bs.toString();
+        } else if (!inputDolar.value) {
+            inputBs.value = '';
+        }
+        calcularIndividual();
+    }
+
+    function calcularDesdeBs() {
+        let bs = parseFloat(inputBs.value.replace(',', '.'));
+        let iva = getIvaFactor();
+        if (!isNaN(bs) && bs > 0 && tasaBCV > 0) {
+            let nuevo_dolar = ((bs * iva) / tasaBCV).toFixed(2);
+            inputDolar.value = nuevo_dolar.toString();
+        } else if (!inputBs.value) {
+            inputDolar.value = '';
+        }
+        calcularIndividual();
+    }
+
+    function calcularIndividual() {
+        let dolar = parseFloat(inputDolar.value.replace(',', '.')) || 0;
+        let bs = parseFloat(inputBs.value.replace(',', '.')) || 0;
+        let porcentaje = parseFloat(inputPorcentaje.value.replace(',', '.')) || 0;
+        let porcentaje_decimal = porcentaje / 100;
+        let stock = parseFloat(inputStock.value.replace(',', '.')) || 1;
+        let iva = getIvaFactor();
+
+        // Precio individual en dólares
+        let individual_dolar = '';
+        if (dolar && stock) {
+            individual_dolar = (dolar / stock) * (1 + porcentaje_decimal);
+        } else if (bs && tasaBCV && stock) {
+            individual_dolar = (bs / (tasaBCV * iva) / stock) * (1 + porcentaje_decimal);
+        }
+        inputIndividualDolar.value = individual_dolar ? individual_dolar.toFixed(2) : '';
+        hiddenIndividualDolar.value = inputIndividualDolar.value;
+
+        // Precio individual en bolívares
+        let individual_bs = '';
+        if (bs && stock) {
+            individual_bs = (bs / stock) * iva * (1 + porcentaje_decimal);
+        } else if (dolar && tasaBCV && stock) {
+            individual_bs = ((dolar * tasaBCV * iva) / stock) * (1 + porcentaje_decimal);
+        }
+        inputIndividualBs.value = individual_bs ? individual_bs.toFixed(2) : '';
+        hiddenIndividualBs.value = inputIndividualBs.value;
+    }
+
+    inputDolar.addEventListener('input', calcularDesdeDolar);
+    inputBs.addEventListener('input', calcularDesdeBs);
+    inputPorcentaje.addEventListener('input', calcularIndividual);
+    inputStock.addEventListener('input', calcularIndividual);
+    if (selectIVA) selectIVA.addEventListener('change', function() {
+        calcularDesdeDolar();
+        calcularIndividual();
+    });
+
+    // Inicializa los valores al cargar la página
+    calcularIndividual();
+
+    if (selectIVA) selectIVA.addEventListener('change', function() {
+        if (inputDolar) inputDolar.value = '';
+        if (inputBs) inputBs.value = '';
+        if (inputStock) inputStock.value = '';
+        if (inputIndividualDolar) inputIndividualDolar.value = '';
+        if (inputIndividualBs) inputIndividualBs.value = '';
+        calcularIndividual();
+    });
+
+    document.querySelector('form').addEventListener('submit', function(e) {
+        if (inputDolar && inputDolar.value)
+            inputDolar.value = parseFloat(inputDolar.value.replace(',', '.')).toFixed(2);
+        if (inputBs && inputBs.value)
+            inputBs.value = parseFloat(inputBs.value.replace(',', '.')).toFixed(2);
+        if (inputIndividualDolar && inputIndividualDolar.value)
+            inputIndividualDolar.value = parseFloat(inputIndividualDolar.value.replace(',', '.')).toFixed(2);
+        if (inputIndividualBs && inputIndividualBs.value)
+            inputIndividualBs.value = parseFloat(inputIndividualBs.value.replace(',', '.')).toFixed(2);
+        // Asegura que los hidden también estén actualizados
+        hiddenIndividualDolar.value = inputIndividualDolar.value;
+        hiddenIndividualBs.value = inputIndividualBs.value;
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}

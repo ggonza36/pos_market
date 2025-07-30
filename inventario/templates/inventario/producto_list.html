@@ -1,0 +1,209 @@
+{# inventario/templates/inventario/producto_list.html #}
+{% extends 'base.html' %}
+{% load crispy_forms_tags %} {# Si usas crispy_forms para futuros formularios de búsqueda/filtrado #}
+{% load static %} {# Para cargar archivos estáticos si los necesitas, como CSS/JS adicionales #}
+
+{% block title %}Productos | POS Tienda{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    {# Bloque de mensajes #}
+    {% if messages %}
+        <div class="row">
+            <div class="col-12">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">Gestión de Productos</h1>
+        <div>
+            {% if user.is_authenticated and user.rol and user.rol.nombre == 'Admin' or user.rol.nombre == 'Propietario' %}
+            <a href="{% url 'importar_productos' %}" class="btn btn-outline-info me-2">
+                <i class="bi bi-file-earmark-excel"></i> Importar Excel
+            </a>
+            <a href="{% url 'producto_create' %}" class="btn btn-success">
+                <i class="bi bi-plus-circle"></i> Nuevo Producto
+            </a>
+            {% endif %} {# Fin de la condición para Importar/Nuevo Producto #}
+            {# Botón para descargar listado de productos con stock bajo en PDF #}
+            {% if user.is_authenticated and user.rol and user.rol.nombre == 'Admin' or user.rol.nombre == 'Propietario' %}
+            <a href="{% url 'descargar_productos_bajo_stock_pdf' %}" class="btn btn-danger ms-2">
+                <i class="bi bi-file-earmark-pdf-fill"></i> Stock Bajo (PDF)
+            </a>
+            {% endif %} {# Fin de la condición para Descargar PDF #}
+        </div>
+    </div>
+
+    {# Sección de Estadísticas de Inventario #}
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Total de Productos</h5>
+                        <i class="bi bi-boxes fs-1"></i>
+                    </div>
+                    <p class="card-text fs-3">{{ total_productos }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-warning shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Productos con Stock Bajo</h5>
+                        <i class="bi bi-exclamation-triangle-fill fs-1"></i>
+                    </div>
+                    <p class="card-text fs-3">{{ productos_bajo_stock }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-success shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Potencial Ganancia (USD)</h5>
+                        <i class="bi bi-cash-stack fs-1"></i>
+                    </div>
+                    <p class="card-text fs-3">${{ ganancia_real_dolar|floatformat:2 }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Formulario de Búsqueda y Filtro #}
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header">
+            <h5 class="mb-0">Buscar y Filtrar Productos</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-6 col-lg-4">
+                    {{ search_form.q.label_tag }}
+                    {{ search_form.q }}
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    {{ search_form.categoria.label_tag }}
+                    {{ search_form.categoria }}
+                </div>
+                <div class="col-12">
+                    <h6>Filtrar por rango de precios:</h6>
+                </div>
+                <div class="col-md-3 col-lg-2">
+                    {{ search_form.precio_dolar_min.label_tag }}
+                    {{ search_form.precio_dolar_min }}
+                </div>
+                <div class="col-md-3 col-lg-2">
+                    {{ search_form.precio_dolar_max.label_tag }}
+                    {{ search_form.precio_dolar_max }}
+                </div>
+                <div class="col-md-3 col-lg-2">
+                    {{ search_form.precio_bs_min.label_tag }}
+                    {{ search_form.precio_bs_min }}
+                </div>
+                <div class="col-md-3 col-lg-2">
+                    {{ search_form.precio_bs_max.label_tag }}
+                    {{ search_form.precio_bs_max }}
+                </div>
+                <div class="col-12 text-end">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="bi bi-search"></i> Buscar
+                    </button>
+                    <a href="{% url 'producto_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-circle"></i> Limpiar Filtros
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# Lista de Productos #}
+    {% if productos %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        {% for producto in productos %}
+        <div class="col">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">{{ producto.nombre }}</h5>
+                    <p class="card-subtitle mb-2 text-muted small">Categoría: {{ producto.categoria }}</p>
+                    <p class="card-subtitle mb-2 text-muted small">Cód: {{ producto.codigo }}</p>
+                    <hr>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <p class="mb-0">Precio Costo:</p>
+                            <h6 class="text-success">${{ producto.precio_dolar|floatformat:2 }} / Bs {{ producto.precio_bs|floatformat:2 }}</h6>
+                        </div>
+                        <div>
+                            <p class="mb-0">Precio Venta:</p>
+                            <h6 class="text-primary">${{ producto.precio_individual_dolar|floatformat:2 }} / Bs {{ producto.precio_individual_bs|floatformat:2 }}</h6>
+                        </div>
+                    </div>
+                    <p class="card-text mb-1">
+                        <strong>Stock:</strong>
+                        {% if producto.stock <= 5 %}
+                            <span class="badge bg-danger">{{ producto.stock|floatformat:0 }} (¡Bajo Stock!)</span>
+                        {% else %}
+                            <span class="badge bg-success">{{ producto.stock|floatformat:0 }}</span>
+                        {% endif %}
+                    </p>
+                    <p class="card-text mb-3"><strong>Ganancia:</strong> {{ producto.porcentaje_ganancia|floatformat:2 }}%</p>
+                    {% if producto.descripcion %}
+                        <p class="card-text small text-muted">{{ producto.descripcion }}</p>
+                    {% endif %}
+                </div>
+                <div class="card-footer d-flex justify-content-end">
+                    {% if user.is_authenticated and user.rol and user.rol.nombre == 'Admin' or user.rol.nombre == 'Propietario' %}
+                    <a href="{% url 'producto_update' producto.pk %}" class="btn btn-sm btn-outline-primary me-2">
+                        <i class="bi bi-pencil-square"></i> Editar
+                    </a>
+                    <a href="{% url 'producto_delete' producto.pk %}" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-trash"></i> Eliminar
+                    </a>
+                    {% endif %} {# Fin de la condición para Editar/Eliminar #}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {# Enlaces de paginación #}
+    {% if is_paginated %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&page={{ page_obj.previous_page_number }}">Anterior</a></li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active" aria-current="page"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode|cut:'page='|cut:''|add:page_obj.number }}&page={{ num }}">{{ num }}</a></li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&page={{ page_obj.next_page_number }}">Siguiente</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    {% endif %}
+
+    {% else %}
+        <div class="alert alert-info" role="alert">
+            <h4 class="alert-heading">¡No hay productos registrados!</h4>
+            <p>Parece que aún no tienes ningún producto en tu inventario.</p>
+            <hr>
+            <p class="mb-0">Puedes empezar añadiendo uno nuevo haciendo clic en "Nuevo Producto".</p>
+        </div>
+    </div>
+    {% endif %}
+
+{% endblock %}
