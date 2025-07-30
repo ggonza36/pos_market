@@ -1,0 +1,40 @@
+{# ventas/templates/ventas/venta_confirm_delete.html #}
+{% extends 'base.html' %} {# Asume que tienes un 'base.html' para la estructura general #}
+{% load crispy_forms_tags %} {# Si usas crispy_forms, aunque aquí no es estrictamente necesario #}
+
+{% block title %}Eliminar Venta | POS Tienda{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-danger shadow-sm">
+                <div class="card-header bg-danger text-white text-center">
+                    <h4 class="mb-0"><i class="bi bi-exclamation-triangle-fill"></i> Confirmar Eliminación de Venta</h4>
+                </div>
+                <div class="card-body text-center">
+                    <p class="lead">¿Estás seguro de que quieres eliminar la venta número **{{ venta.id }}**?</p>
+                    <p class="text-danger fw-bold">
+                        Esta acción es irreversible y devolverá el stock de los productos vendidos a la cantidad original.
+                    </p>
+                    <p>
+                        **Fecha:** {{ venta.fecha|date:"d/m/Y H:i" }}<br>
+                        **Cliente:** {{ venta.cliente|default:"N/A" }}<br>
+                        **Total:** ${{ venta.total_dolar|floatformat:2 }} ({{ venta.total_bs|floatformat:2 }} Bs)
+                    </p>
+                    <hr>
+                    <form method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger me-2">
+                            <i class="bi bi-trash"></i> Sí, Eliminar Venta
+                        </button>
+                        <a href="{% url 'ventas:venta_list' %}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle"></i> Cancelar
+                        </a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

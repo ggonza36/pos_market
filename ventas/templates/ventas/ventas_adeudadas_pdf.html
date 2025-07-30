@@ -1,0 +1,130 @@
+{# ventas/templates/ventas/ventas_adeudadas_pdf.html #}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte de Ventas Adeudadas</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', 'Helvetica', Arial, sans-serif;
+            margin: 20mm;
+            font-size: 10pt;
+            color: #333;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            color: #2c3e50;
+            margin-top: 0;
+            margin-bottom: 5px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 18pt;
+            margin-bottom: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header img {
+            max-width: 100px; /* Ajusta según el tamaño de tu logo */
+            margin-bottom: 10px;
+        }
+        .info-box {
+            border: 1px solid #ddd;
+            padding: 10px 15px;
+            margin-bottom: 20px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            display: inline-block;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .info-box p {
+            margin: 0;
+            padding: 2px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #e0e0e0;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            color: #555;
+        }
+        .total-row {
+            background-color: #e6f7ff;
+            font-weight: bold;
+            border-top: 2px solid #a8d9ff;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            font-size: 8pt;
+            color: #777;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        {# Si tienes un logo, puedes incluirlo aquí. Asegúrate de que la ruta sea accesible para xhtml2pdf #}
+        {# <img src="/static/img/logo.png" alt="Logo de la Empresa"> #}
+        <h1>Reporte de Ventas Adeudadas</h1>
+        <p><strong>Fecha de Generación:</strong> {{ current_date|date:"d/m/Y" }}</p>
+    </div>
+
+    <div class="info-box">
+        <p>Este reporte muestra todas las ventas que tienen un estado de "Adeudado" hasta la fecha de generación.</p>
+        <p><strong>Total Adeudado:</strong> <span style="font-size: 1.2em; color: #d9534f;">$ {{ total_adeudado|floatformat:2 }}</span></p>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID Venta</th>
+                <th>Fecha</th>
+                <th>Cliente</th>
+                <th>Total ($)</th>
+                <th>Total (Bs)</th>
+                <th>Método Pago</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for venta in ventas %}
+            <tr>
+                <td>{{ venta.id }}</td>
+                <td>{{ venta.fecha|date:"d/m/Y H:i" }}</td>
+                <td>{{ venta.cliente|default:"N/A" }}</td>
+                <td>${{ venta.total_dolar|floatformat:2 }}</td>
+                <td>Bs {{ venta.total_bs|floatformat:2 }}</td>
+                <td>{{ venta.get_metodo_pago_display }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="total-row">
+                <td colspan="4" class="text-right">Total General Adeudado:</td>
+                <td class="text-right">$ {{ total_adeudado|floatformat:2 }}</td>
+                <td></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="footer">
+        <p>&copy; {{ "now"|date:"Y" }} Inversiones Hogareño Mimarket C.A. Todos los derechos reservados.</p>
+    </div>
+</body>
+</html>

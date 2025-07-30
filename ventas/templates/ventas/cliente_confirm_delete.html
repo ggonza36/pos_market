@@ -1,0 +1,41 @@
+{# ventas/templates/ventas/cliente_confirm_delete.html #}
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Eliminar Cliente | POS Tienda{% endblock %}
+
+{% block content %}
+<div class="container mt-5"> {# Más margen superior para centrar #}
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-danger shadow-lg rounded-3"> {# Sombra más grande y bordes redondeados #}
+                <div class="card-header bg-danger text-white text-center p-3 rounded-top-3">
+                    <h4 class="mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i> Confirmar Eliminación</h4>
+                </div>
+                <div class="card-body text-center p-4"> {# Más padding en el cuerpo #}
+                    <p class="lead mb-4">¿Estás seguro de que quieres eliminar al cliente?</p>
+                    <h2 class="fw-bolder text-danger mb-3">{{ object.nombre }} {{ object.apellido|default:'' }}</h2> {# Más grande y en negrita #}
+                    <p class="text-muted fs-5">Cédula/RIF: {{ object.cedula_rif }}</p> {# Tamaño de fuente un poco más grande #}
+                    
+                    <div class="alert alert-warning border-0 my-4 py-3" role="alert"> {# Alerta de advertencia con más padding y sin borde #}
+                        <h5 class="alert-heading text-danger"><i class="bi bi-info-circle-fill me-2"></i> ¡Atención!</h5>
+                        <p class="fw-bold mb-0">Esta acción es irreversible y no se puede deshacer.</p>
+                        <p class="mb-0">Las ventas asociadas a este cliente **NO** serán eliminadas.</p>
+                    </div>
+                    
+                    <hr class="my-4"> {# Separador con más margen #}
+                    <form method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger btn-lg me-3"> {# Botones más grandes #}
+                            <i class="bi bi-trash me-2"></i> Sí, Eliminar Permanentemente
+                        </button>
+                        <a href="{% url 'ventas:cliente_list' %}" class="btn btn-secondary btn-lg"> {# Botones más grandes #}
+                            <i class="bi bi-x-circle me-2"></i> Cancelar
+                        </a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

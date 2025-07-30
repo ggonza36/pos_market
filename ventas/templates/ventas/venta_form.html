@@ -1,0 +1,718 @@
+{# ventas/templates/ventas/venta_form.html #}
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}POS | Nueva Venta{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-2 h-100">
+    <div class="row h-100">
+        {# Panel Izquierdo: Venta Actual #}
+        <div class="col-lg-5 col-md-6 d-flex flex-column bg-light border-end p-3" style="max-height: calc(100vh - 56px);">
+            
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h4 class="mb-0 text-primary"><i class="bi bi-cart4 me-2"></i>Venta Actual</h4>
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="saleActions" data-bs-toggle="dropdown" aria-expanded="false">
+                        Acciones
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="saleActions">
+                        <li><a class="dropdown-item text-danger" href="#" id="cancel-sale-btn"><i class="bi bi-x-circle me-2"></i> Cancelar Venta</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            {# ANOTACIÓN: Nueva sección para mostrar y asignar el cliente #}
+            <div id="client-section" class="d-flex justify-content-between align-items-center mb-3 border-top border-bottom py-2">
+                <div id="client-display">
+                    <h6 class="mb-0 text-muted"><i class="bi bi-person-circle me-2"></i>Cliente General</h6>
+                </div>
+                <div>
+                    <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#clientSearchModal">
+                        <i class="bi bi-search me-1"></i> Asignar
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm d-none" id="remove-client-btn" title="Quitar Cliente">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+
+            {# Contenedor de artículos de la venta #}
+            <div id="sale-items-container" class="flex-grow-1 overflow-auto mb-3">
+                <div id="empty-cart-message" class="text-center text-muted mt-5">
+                    <i class="bi bi-basket2-fill" style="font-size: 4rem;"></i>
+                    <p class="mt-2">Añade productos desde el panel derecho.</p>
+                </div>
+            </div>
+
+            {# Sección de Totales y Pago (fija en la parte inferior) #}
+            <div class="mt-auto border-top pt-3">
+                <div class="d-flex justify-content-between mb-3 fw-bold fs-4">
+                    <span>Total:</span>
+                    <span id="grand-total-dolar">$0.00</span>
+                </div>
+                <div class="text-end text-muted small mb-3">
+                    <span>Total en Bs: <span id="grand-total-bs">0.00</span></span>
+                    <span>(Tasa: <span id="tasa-bcv-display">{{ tasa_bcv_activa|floatformat:2 }}</span>)</span>
+                </div>
+
+                {% if user.is_authenticated and user.rol.nombre in "Admin,Propietario,Vendedor" %}
+                    <div class="d-grid">
+                        <button type="button" id="payment-btn" class="btn btn-success btn-lg p-3">
+                            <i class="bi bi-credit-card-fill me-2"></i> Proceder al Pago
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {# Panel Derecho: Búsqueda y Cuadrícula de Productos #}
+        <div class="col-lg-7 col-md-6 d-flex flex-column p-3" style="max-height: calc(100vh - 56px);">
+            <div class="input-group mb-3">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" placeholder="Buscar productos por nombre o código..." id="product-search-input">
+            </div>
+
+            {# Cuadrícula de Productos #}
+            <div id="product-grid" class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3 overflow-auto flex-grow-1">
+                {# ANOTACIÓN: Se añade un estado de carga mientras se obtienen los productos. #}
+                <div id="product-loader" class="col-12 text-center text-muted mt-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Cargando productos...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ANOTACIÓN: Nuevo Modal para la búsqueda de clientes #}
+<div class="modal fade" id="clientSearchModal" tabindex="-1" aria-labelledby="clientSearchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="clientSearchModalLabel">Buscar y Asignar Cliente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex mb-3">
+                    <input type="text" id="client-search-input-modal" class="form-control me-2" placeholder="Buscar por nombre, apellido o cédula/RIF...">
+                    <a href="{% url 'ventas:cliente_create' %}" target="_blank" class="btn btn-success text-nowrap">
+                        <i class="bi bi-plus-circle"></i> Nuevo
+                    </a>
+                </div>
+                <div id="client-search-results" class="list-group" style="max-height: 300px; overflow-y: auto;">
+                    {# Los resultados de la búsqueda de clientes se cargarán aquí #}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Modal de Detalles de Pago (EXISTENTE) #}
+<div class="modal fade" id="paymentDetailsModal" tabindex="-1" aria-labelledby="paymentDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="paymentDetailsModalLabel">Detalles del Pago</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="metodoPagoSelect" class="form-label">Método de Pago</label>
+                    <select class="form-select" id="metodoPagoSelect">
+                        <option value="EFECTIVO">Efectivo</option>
+                        <option value="TARJETA_DEBITO">Tarjeta de Débito</option>
+                        <option value="TARJETA_CREDITO">Tarjeta de Crédito</option>
+                        <option value="TRANSFERENCIA">Transferencia</option>
+                        <option value="PAGO_MOVIL">Pago Móvil</option>
+                        <option value="MIXTO" selected>Mixto</option>
+                        <option value="ZELLE">Zelle</option>
+                        <option value="CRIPTO">Cripto</option>
+                        <option value="OTRO">Otro</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="estadoVentaSelect" class="form-label">Estado de la Venta</label>
+                    <select class="form-select" id="estadoVentaSelect">
+                        {# CORRECCIÓN: Se ajustan los values para que coincidan con el modelo #}
+                        <option value="COMPLETADA" selected>Completada</option>
+                        <option value="ADEUDADO">Adeudado</option>
+                        <option value="ANULADA">Anulada</option>
+                        <option value="DEVOLUCION">Devolución</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirmPaymentBtn">Confirmar Pago</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# NUEVO MODAL: Opciones de Recibo #}
+<div class="modal fade" id="receiptOptionsModal" tabindex="-1" aria-labelledby="receiptOptionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="receiptOptionsModalLabel">Recibo Generado</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p>¿Qué desea hacer con el recibo?</p>
+                <button type="button" class="btn btn-info w-100 mb-2" id="downloadPdfBtn"><i class="bi bi-download me-1"></i> Descargar PDF</button>
+                <button type="button" class="btn btn-success w-100 mb-2" id="printPdfBtn"><i class="bi bi-printer me-1"></i> Imprimir Recibo</button>
+                <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function() {
+    let saleItems = {};
+    const tasaBcv = parseFloat($('#tasa-bcv-display').text().replace(',', '.')) || 1.00;
+    let selectedClient = null; // Variable para almacenar el cliente seleccionado
+    let lastGeneratedPdfData = null; // Para almacenar el PDF en base64 de la última venta
+    let lastGeneratedPdfFilename = null; // Para almacenar el nombre de archivo sugerido
+
+    // ANOTACIÓN: Función para actualizar la visibilidad del mensaje de carrito vacío.
+    function updateEmptyCartMessage() {
+        if (Object.keys(saleItems).length === 0) {
+            $('#empty-cart-message').show();
+        } else {
+            $('#empty-cart-message').hide();
+        }
+    }
+
+    function renderSaleItems() {
+        const container = $('#sale-items-container');
+        container.find('.sale-item-row').remove(); // Limpiar solo los items, no el mensaje de vacío
+        let grandTotalDolar = 0;
+
+        for (const productId in saleItems) {
+            const item = saleItems[productId];
+            const itemTotalDolar = item.quantity * item.price_dolar;
+            grandTotalDolar += itemTotalDolar;
+            
+            const itemHtml = `
+                <div class="d-flex align-items-center p-2 mb-2 bg-white rounded shadow-sm sale-item-row" data-product-id="${item.id}">
+                    <div class="flex-grow-1">
+                        <div class="fw-bold">${item.name}</div>
+                        <small class="text-muted">$${item.price_dolar.toFixed(2)} c/u</small>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-sm btn-outline-secondary quantity-change-btn" data-product-id="${item.id}" data-change="-1">-</button>
+                        <input type="number" class="form-control form-control-sm text-center mx-2 quantity-input" style="width: 60px;" value="${item.quantity}" data-product-id="${item.id}">
+                        <button class="btn btn-sm btn-outline-secondary quantity-change-btn" data-product-id="${item.id}" data-change="1">+</button>
+                    </div>
+                    <div class="text-end ms-3" style="min-width: 80px;">
+                        <span class="fw-bold fs-6">$${itemTotalDolar.toFixed(2)}</span>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger ms-2 remove-item-btn" data-product-id="${item.id}"><i class="bi bi-trash"></i></button>
+                </div>
+            `;
+            container.append(itemHtml);
+        }
+
+        $('#subtotal-dolar').text(`$${grandTotalDolar.toFixed(2)}`);
+        $('#grand-total-dolar').text(`$${grandTotalDolar.toFixed(2)}`);
+        const grandTotalBs = (grandTotalDolar * tasaBcv).toFixed(2);
+        $('#grand-total-bs').text(grandTotalBs);
+
+        updateEmptyCartMessage();
+    }
+    
+    function updateItemQuantity(productId, newQuantity) {
+        if (saleItems[productId]) {
+            newQuantity = parseFloat(newQuantity);
+            if (newQuantity > 0 && newQuantity <= saleItems[productId].stock) {
+                saleItems[productId].quantity = newQuantity;
+            } else if (newQuantity <= 0) {
+                delete saleItems[productId];
+            } else {
+                alert(`Stock máximo para ${saleItems[productId].name} es ${saleItems[productId].stock}.`);
+                $(`.quantity-input[data-product-id="${productId}"]`).val(saleItems[productId].stock);
+                saleItems[productId].quantity = saleItems[productId].stock;
+            }
+            renderSaleItems();
+        }
+    }
+
+    function addItemToSale(product) {
+        if (saleItems[product.id]) {
+            const newQuantity = saleItems[product.id].quantity + 1;
+            if (newQuantity > product.stock) {
+                alert(`No hay suficiente stock para ${product.nombre}. Disponible: ${product.stock}`);
+                return;
+            }
+            saleItems[product.id].quantity = newQuantity;
+        } else {
+            if (1 > product.stock) {
+                alert(`No hay suficiente stock para ${product.nombre}. Disponible: ${product.stock}`);
+                return;
+            }
+            saleItems[product.id] = {
+                id: product.id,
+                name: product.nombre,
+                price_dolar: parseFloat(product.precio_individual_dolar),
+                stock: parseFloat(product.stock),
+                quantity: 1
+            };
+        }
+        renderSaleItems();
+    }
+
+    function loadProducts(searchTerm = '') {
+        const productGrid = $('#product-grid');
+        const loader = $('#product-loader');
+        
+        loader.show();
+        productGrid.find('.product-card-col').remove();
+
+        $.ajax({
+            url: "{% url 'ventas:get_product_details_ajax' %}",
+            data: { search: searchTerm },
+            dataType: 'json',
+            success: function(data) {
+                loader.hide();
+                if (data.results.length === 0) {
+                    productGrid.append('<div class="col-12 text-center text-muted">No se encontraron productos.</div>');
+                    return;
+                }
+                data.results.forEach(product => {
+                    const isOutOfStock = parseFloat(product.stock) <= 0;
+                    const productCard = `
+                        <div class="col product-card-col">
+                            <div class="card h-100 product-card ${isOutOfStock ? 'disabled' : ''}" 
+                                 ${isOutOfStock ? '' : `
+                                 data-product-id="${product.id}"
+                                 data-product-name="${product.nombre}"
+                                 data-price-dolar="${product.precio_individual_dolar}"
+                                 data-stock="${product.stock}"`}>
+                                <div class="card-body text-center p-2 d-flex flex-column">
+                                    <h6 class="card-title mb-1 small flex-grow-1">${product.nombre}</h6>
+                                    <p class="card-text fw-bold mb-0">$${parseFloat(product.precio_individual_dolar).toFixed(2)}</p>
+                                    <small class="text-muted">Stock: ${product.stock}</small>
+                                    ${isOutOfStock ? '<span class="badge bg-danger mt-1">Sin Stock</span>' : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    productGrid.append(productCard);
+                });
+            },
+            error: function() {
+                loader.hide();
+                productGrid.append('<div class="col-12 text-center text-danger">Error al cargar los productos.</div>');
+            }
+        });
+    }
+
+    // --- FUNCIONES PARA LA LÓGICA DE CLIENTES ---
+
+    function updateCartDisplay() {
+        const cartTableBody = $('#cart-items-body');
+        cartTableBody.empty(); // Limpia todos los items del carrito
+
+        let totalDolar = 0;
+        let totalBs = 0;
+        for (const productId in saleItems) {
+            const item = saleItems[productId];
+            const subtotalDolar = item.quantity * item.price_dolar;
+            const subtotalBs = item.quantity * item.price_bs;
+            totalDolar += subtotalDolar;
+            totalBs += subtotalBs;
+
+            const row = `
+                <tr data-product-id="${productId}" class="sale-item-row">
+                    <td>${item.name}</td>
+                    <td>${item.quantity}</td>
+                    <td>$${item.price_dolar.toFixed(2)}</td>
+                    <td>Bs ${item.price_bs.toFixed(2)}</td>
+                    <td>$${subtotalDolar.toFixed(2)}</td>
+                    <td>Bs ${subtotalBs.toFixed(2)}</td>
+                    <td><button type="button" class="btn btn-danger btn-sm remove-item-btn" data-product-id="${productId}"><i class="bi bi-trash"></i></button></td>
+                </tr>
+            `;
+            cartTableBody.append(row);
+        }
+
+        // Actualizar totales y mensajes
+        $('#total-dolar-display').text(`$${totalDolar.toFixed(2)}`);
+        $('#total-bs-display').text(`Bs ${totalBs.toFixed(2)}`);
+        updateEmptyCartMessage(); // Muestra/oculta el mensaje de "carrito vacío"
+    }
+
+
+    // Ejemplo de updateClientDisplay (ya lo tienes, solo verifica que sea este)
+    function updateClientDisplay() {
+        const clientDisplay = $('#client-display');
+        const removeClientBtn = $('#remove-client-btn');
+        if (selectedClient) {
+            clientDisplay.html(`
+                <h6 class="mb-0 text-primary"><i class="bi bi-person-fill me-2"></i>${selectedClient.name}</h6>
+                <small class="text-muted">${selectedClient.id_card}</small>
+            `);
+            removeClientBtn.removeClass('d-none');
+        } else {
+            clientDisplay.html(`
+                <h6 class="mb-0 text-muted"><i class="bi bi-person-circle me-2"></i>Cliente General</h6>
+            `);
+            removeClientBtn.addClass('d-none');
+        }
+    }
+
+    // --- FUNCIONES PARA MANEJAR EL PDF ---
+    function downloadPdf(pdfData, filename) {
+        const byteCharacters = atob(pdfData);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function printPdf(pdfData) {
+        // Opción 1: Abrir en una nueva ventana/pestaña para imprimir
+        const byteCharacters = atob(pdfData);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+        const url = URL.createObjectURL(blob);
+        const printWindow = window.open(url, '_blank'); // Abre en una nueva pestaña
+        if (printWindow) {
+            printWindow.onload = function() {
+                try {
+                    printWindow.focus();
+                    printWindow.print();
+                    // Opcional: Cerrar la ventana después de un tiempo si quieres
+                    // setTimeout(() => printWindow.close(), 1000); 
+                } catch (e) {
+                    console.error("Error al intentar imprimir:", e);
+                    alert("No se pudo iniciar la impresión automáticamente. Por favor, imprime desde la nueva pestaña/ventana.");
+                } finally {
+                    URL.revokeObjectURL(url); // Revocar la URL después de usarla
+                }
+            };
+        } else {
+            alert('No se pudo abrir la ventana de impresión. Asegúrate de que los pop-ups no estén bloqueados.');
+            URL.revokeObjectURL(url);
+        }
+
+        /*
+        // Opción 2: Usar un iframe oculto (puede tener problemas de seguridad o bloqueo de pop-ups)
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = `data:application/pdf;base64,${pdfData}`;
+        document.body.appendChild(iframe);
+        iframe.onload = function() {
+            try {
+                iframe.contentWindow.print();
+            } catch (e) {
+                console.error("Error al imprimir con iframe:", e);
+                alert("Hubo un problema al imprimir. Intenta descargar el PDF y luego imprimirlo.");
+            } finally {
+                document.body.removeChild(iframe);
+            }
+        };
+        */
+    }
+
+
+    // --- EVENT LISTENERS ---
+    
+    // Búsqueda de productos (con debounce para eficiencia)
+    let searchTimeout;
+    $('#product-search-input').on('keyup', function() {
+        clearTimeout(searchTimeout);
+        const searchTerm = $(this).val();
+        searchTimeout = setTimeout(() => {
+            loadProducts(searchTerm);
+        }, 300);
+    });
+
+    // Añadir producto al hacer clic en la tarjeta
+    $(document).on('click', '.product-card:not(.disabled)', function() {
+        const product = {
+            id: $(this).data('product-id'),
+            nombre: $(this).data('product-name'),
+            precio_individual_dolar: parseFloat($(this).data('price-dolar')), // Asegura que sea número
+            stock: parseFloat($(this).data('stock')) // Asegura que sea número
+        };
+        addItemToSale(product);
+    });
+
+    // Eliminar item del carrito
+    $(document).on('click', '.remove-item-btn', function() {
+        const productId = $(this).data('product-id');
+        delete saleItems[productId];
+        renderSaleItems();
+    });
+    
+    $(document).on('click', '.quantity-change-btn', function() {
+        const productId = $(this).data('product-id');
+        const change = parseInt($(this).data('change'));
+        const newQuantity = saleItems[productId].quantity + change;
+        updateItemQuantity(productId, newQuantity);
+    });
+
+    $(document).on('change', '.quantity-input', function() {
+        const productId = $(this).data('product-id');
+        const newQuantity = $(this).val();
+        updateItemQuantity(productId, newQuantity);
+    });
+
+    // Cancelar toda la venta
+    $('#cancel-sale-btn').on('click', function(e) {
+        e.preventDefault();
+        if (confirm('¿Estás seguro de que quieres cancelar esta venta y vaciar el carrito?')) {
+            saleItems = {};
+            renderSaleItems();
+            selectedClient = null; // Reiniciar cliente al cancelar venta
+            updateClientDisplay();
+        }
+    });
+
+    // Lógica del botón de Pago
+    $('#payment-btn').on('click', function() {
+        // Aquí puedes añadir validaciones previas si el carrito está vacío, etc.
+        if (Object.keys(saleItems).length === 0) {
+            alert('El carrito está vacío. Agregue productos antes de proceder al pago.');
+            return;
+        }
+        $('#paymentDetailsModal').modal('show'); // Mostrar el modal
+    });
+
+    // Listener para el botón "Confirmar Pago" dentro del modal
+    $('#confirmPaymentBtn').on('click', function() {
+        const metodoPago = $('#metodoPagoSelect').val();
+        const estadoVenta = $('#estadoVentaSelect').val();
+
+        const clientId = selectedClient ? selectedClient.id : null;
+
+        // --- Depuración en Frontend ---
+        console.log("Enviando a backend:");
+        console.log("items:", saleItems);
+        console.log("metodo_pago:", metodoPago);
+        console.log("estado_venta:", estadoVenta);
+        console.log("cliente_id:", clientId);
+        // --- Fin Depuración ---
+
+        $.ajax({
+            url: "{% url 'ventas:registrar_venta_pos_ajax' %}",
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            data: JSON.stringify({
+                items: saleItems,
+                metodo_pago: metodoPago,
+                estado_venta: estadoVenta,
+                cliente_id: clientId
+            }),
+            contentType: 'application/json',
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    alert(response.message);
+                    $('#paymentDetailsModal').modal('hide'); // Cerrar el modal
+
+                    // --- Manejo Opcional de PDF ---
+                    if (response.pdf_receipt) {
+                        lastGeneratedPdfData = response.pdf_receipt;
+                        lastGeneratedPdfFilename = response.pdf_filename;
+                        $('#receiptOptionsModal').modal('show'); // Mostrar el modal de opciones
+                    } else {
+                        // Si no hay PDF, simplemente limpiar la interfaz
+                        saleItems = {}; 
+                        renderSaleItems();
+                        selectedClient = null;
+                        updateClientDisplay();
+                    }
+                    // --- Fin Manejo Opcional de PDF ---
+                    
+                } else {
+                    alert('Error al registrar la venta: ' + response.message);
+                }
+            },
+            error: function(xhr, status, error) {
+                let errorMessage = 'Error desconocido al registrar la venta.';
+                try {
+                    const errorResponse = JSON.parse(xhr.responseText);
+                    errorMessage = errorResponse.message || errorMessage;
+                } catch (e) {
+                    errorMessage = `Error: ${xhr.status} ${xhr.statusText} - No se pudo parsear la respuesta del servidor.`;
+                }
+                alert(errorMessage);
+                $('#paymentDetailsModal').modal('hide'); // Cerrar el modal incluso en caso de error
+            }
+        });
+    });
+
+    // --- NUEVOS LISTENERS PARA EL MODAL DE OPCIONES DE RECIBO ---
+    $('#downloadPdfBtn').on('click', function() {
+        if (lastGeneratedPdfData && lastGeneratedPdfFilename) {
+            downloadPdf(lastGeneratedPdfData, lastGeneratedPdfFilename);
+            $('#receiptOptionsModal').modal('hide');
+            // Limpiar la interfaz después de que el usuario haya gestionado el recibo
+            saleItems = {}; 
+            renderSaleItems();
+            selectedClient = null;
+            updateClientDisplay();
+        }
+    });
+
+    $('#printPdfBtn').on('click', function() {
+        if (lastGeneratedPdfData) {
+            printPdf(lastGeneratedPdfData);
+            $('#receiptOptionsModal').modal('hide');
+            // Limpiar la interfaz después de que el usuario haya gestionado el recibo
+            saleItems = {}; 
+            renderSaleItems();
+            selectedClient = null;
+            updateClientDisplay();
+        }
+    });
+    // --- FIN NUEVOS LISTENERS PARA EL MODAL DE OPCIONES DE RECIBO ---
+
+
+    // --- NUEVOS EVENT LISTENERS PARA LA BÚSQUEDA DE CLIENTES ---
+
+    let clientSearchTimeout;
+    $('#client-search-input-modal').on('keyup', function() {
+        clearTimeout(clientSearchTimeout);
+        const searchTerm = $(this).val();
+        clientSearchTimeout = setTimeout(() => {
+            if (searchTerm.length < 2) {
+                $('#client-search-results').empty();
+                return;
+            }
+            $.ajax({
+                url: "{% url 'ventas:get_clientes_ajax' %}", // Asegúrate de que esta URL exista
+                data: { q: searchTerm },
+                dataType: 'json',
+                success: function(data) {
+                    const resultsContainer = $('#client-search-results');
+                    resultsContainer.empty();
+                    if (data.length === 0) {
+                        resultsContainer.append('<div class="list-group-item text-muted">No se encontraron clientes.</div>');
+                        return;
+                    }
+                    data.forEach(client => {
+                        resultsContainer.append(`
+                            <button type="button" class="list-group-item list-group-item-action" 
+                                data-client-id="${client.id}" 
+                                data-client-name="${client.name}" 
+                                data-client-idcard="${client.id_card}">
+                                ${client.name} (${client.id_card})
+                            </button>
+                        `);
+                    });
+                },
+                error: function() {
+                    $('#client-search-results').empty().append('<div class="list-group-item text-danger">Error al buscar clientes.</div>');
+                }
+            });
+        }, 300);
+    });
+
+    // Listener para seleccionar un cliente de los resultados
+    $(document).on('click', '#client-search-results .list-group-item-action', function  () {
+        selectedClient = {
+            id: $(this).data('client-id'),
+            name: $(this).data('client-name'),
+            id_card: $(this).data('client-idcard')
+        };
+        updateClientDisplay();
+        $('#clientSearchModal').modal('hide'); // Cerrar el modal
+    });
+
+    // Listener para quitar el cliente asignado
+    $('#remove-client-btn').on('click', function() {
+        selectedClient = null;
+        updateClientDisplay();
+    });
+
+
+    // Carga inicial
+    loadProducts();
+    updateEmptyCartMessage();
+    updateClientDisplay(); // Inicializar el display del cliente
+});
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Asegurar que el layout ocupe toda la altura de la ventana */
+    html, body {
+        height: 100%;
+        overflow: hidden; /* Evitar scroll en el body */
+    }
+    #wrapper {
+        height: 100vh;
+    }
+    
+    .product-card {
+        cursor: pointer;
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        border: 1px solid #e9ecef;
+    }
+    .product-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 0.5rem 1rem rgba(0,0,0,.1);
+    }
+    /* Estilo para productos sin stock */
+    .product-card.disabled {
+        cursor: not-allowed;
+        background-color: #f8f9fa;
+        opacity: 0.7;
+    }
+    .product-card.disabled:hover {
+        transform: none;
+        box-shadow: none;
+    }
+
+    /* Estilo para la fila de item en el carrito */
+    .sale-item-row {
+        transition: background-color 0.2s;
+    }
+    .sale-item-row:hover {
+        background-color: #f8f9fa !important;
+    }
+    .quantity-input {
+        /* Ocultar las flechas del input number */
+        -moz-appearance: textfield;
+    }
+    .quantity-input::-webkit-outer-spin-button,
+    .quantity-input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+</style>
+{% endblock %}
